@@ -376,7 +376,7 @@ void start()
 #endif
 
     printf("Running mainloop...\n");
-    printf("use /connect [<host>] to connect to an AP server\n");
+    printf("use /connect [<host>] [<slot>] to connect to an AP server\n");
 #ifdef __EMSCRIPTEN__
     // auto-connect to ap server given by #server=...
     EM_ASM({
