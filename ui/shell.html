@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>AP Text Client</title>
+    <style>
+      html,body { background: #111; color: #efefef; margin: 0; padding: 0; height: 100%;}
+      a,a:visited { color: #6af; }
+      a:hover { color: #8cf; }
+      a:active { color: #fff; }
+      .emscripten { text-align: center; padding-right: 0; margin-left: auto; margin-right: auto; display: block; }
+      #output { font-family: monospace; box-sizing: border-box; width: 100%; margin: 0; padding:0; height:90%;}
+      div#output { overflow-y:scroll; overflow-x:visible; overflow-wrap: break-word; white-space: pre-wrap; }
+      #status { padding:0px 4px 3px;}
+      .debug { color: #9c9c9c; }
+      .exception { color: #f65; font-size: 1.2em; }
+      
+      .spinner {
+        height: 50px;
+        width: 50px;
+        margin: 0px auto;
+        -webkit-animation: rotation .8s linear infinite;
+        -moz-animation: rotation .8s linear infinite;
+        -o-animation: rotation .8s linear infinite;
+        animation: rotation 0.8s linear infinite;
+        border-left: 10px solid rgb(0,150,240);
+        border-right: 10px solid rgb(0,150,240);
+        border-bottom: 10px solid rgb(0,150,240);
+        border-top: 10px solid rgb(100,0,200);
+        border-radius: 100%;
+      }
+      @-webkit-keyframes rotation {
+        from {-webkit-transform: rotate(0deg);}
+        to {-webkit-transform: rotate(360deg);}
+      }
+      @-moz-keyframes rotation {
+        from {-moz-transform: rotate(0deg);}
+        to {-moz-transform: rotate(360deg);}
+      }
+      @-o-keyframes rotation {
+        from {-o-transform: rotate(0deg);}
+        to {-o-transform: rotate(360deg);}
+      }
+      @keyframes rotation {
+        from {transform: rotate(0deg);}
+        to {transform: rotate(360deg);}
+      }
+      body {
+        display: flex;
+        flex-flow: column;
+        align-items: stretch;
+      }
+      body > div#output {
+        flex: 1;
+      }
+
+      .ansi31 { color: #f66; }
+      .ansi32 { color: #7f8; }
+      .ansi33 { color: #ff4; }
+      .ansi34 { color: #79f; }
+      .ansi35 { color: #f5f; }
+      .ansi36 { color: #5ff; }
+      .ansi38-5-219 { color: plum; }
+      .ansi38-5-62 { color: slateblue; }
+      .ansi38-5-210 { color: salmon; }
+    </style>
+  </head>
+  <body>
+    <figure style="overflow:visible;" id="spinner"><div class="spinner"></div></figure>
+    <div class="emscripten" id="status">Loading...</div>
+    <noscript>Please enable javascript</noscript>
+    <div class="emscripten">
+      <progress value="0" max="100" id="progress" hidden=1></progress>  
+    </div>
+    
+    <div id="status">
+      <span id="ap" style="color:#777">AP</span>
+    </div>
+    <!--<textarea id="output" rows="8"></textarea>-->
+    <div id="output"></div>
+    <div>Command: &nbsp; <input type="text" id="stdin" onkeydown="command_key(this)"/>
+         <div style="float:right">
+            <a id="dump" href="#" style="display:none">Log</a> &nbsp;
+            <a href="https://github.com/black-sliver/ap-soeclient/">Readme</a> &nbsp;
+            <input type="checkbox" id="debug" onclick="toggle_debug(this)"/>
+            <label for="debug">Debug</label>
+        </div>
+    </div>
+    <script type="text/javascript">
+      function command_key(el) {
+        if (event.key == 'Enter') {
+          var cmd = el.value;
+          el.value = '';
+          Module.on_command(cmd);
+        }
+      }
+
+      var debugStyle = document.createElement('style');
+      document.body.appendChild(debugStyle);
+
+      function show_debug() {
+        debugStyle.innerHTML = "";
+      }
+
+      function hide_debug() {
+        debugStyle.innerHTML = "span.debug {display:none;}";
+      }
+
+      function toggle_debug() {
+        if (document.getElementById("debug").checked) show_debug();
+        else hide_debug();
+      }
+      toggle_debug();
+
+      var stamp_num = -1;
+      var stamp_last_now = 0;
+      function stamp() {
+        // create a (hopefully) unique key for logging
+        var now = Date.now();
+        if (stamp_last_now != now) stamp_num = -1;
+        stamp_num++;
+        return Date.now().toString() + '.' + stamp_num;
+      }
+
+      var log = function(text) {}
+      var log_db_req = window.indexedDB.open("log");
+      log_db_req.onupgradeneeded = function(ev) {
+        var db = ev.target.result;
+        var store = db.createObjectStore("log", { autoIncrement : true });
+        store.createIndex("time", "time", { unique: false });
+        store.transaction.oncomplete = function(event) { log("log store created"); }
+      }
+      log_db_req.onsuccess = function(ev) {
+        // delete everything more than 24hrs ago
+        var db = ev.target.result;
+        db.transaction(["log"], "readwrite").objectStore("log")
+          .index("time")
+          .openCursor(IDBKeyRange.upperBound(new Date()-86400000))
+          .onsuccess = function (ev) {
+            var cur = ev.target.result;
+            if (!cur) return;
+            cur.delete();
+            cur.continue();
+        }
+        var dump = document.getElementById('dump');
+        dump.onclick = function() {
+          var s = '';
+          db.transaction(["log"], "readwrite").objectStore("log")
+            .index("time")
+            .openCursor()
+            .onsuccess = function (ev) {
+            var cur = ev.target.result;
+            if (cur) {
+              s += cur.value.time + ': ' + cur.value.text + '\n';
+              cur.continue();
+            } else {
+              // done. download string as blob
+              var fn = 'log.txt';
+              var blob = new Blob([s], {type: 'text/plain'});
+              if(window.navigator.msSaveOrOpenBlob) {
+                window.navigator.msSaveBlob(blob, fn);
+              } else {
+                var el = window.document.createElement('a');
+                el.href = window.URL.createObjectURL(blob);
+                el.download = fn;
+                document.body.appendChild(el);
+                el.click();
+                document.body.removeChild(el);
+              }
+            }
+          };
+        };
+        dump.style.display = 'inline';
+        // create log function to indexdb
+        log = function(text) {
+          db.transaction(["log"], "readwrite").objectStore("log")
+            .add({ time: Date.now(), text: text})
+            .onsuccess = function(ev) { /* done */ }
+        }
+      }
+      log_db_req.onerror = function(ev) {
+        console.error('indexDB not available: '+log_db_req.error);
+      }
+
+      function ansi2html(s) {
+        var p = s.split('\x1b[');
+        s = p.shift();
+        var tagOpen = false;
+        p.forEach(function(t) {
+            if (t.startsWith('0m') || t.startsWith('m')) {
+                if (tagOpen) s += '</span>'
+                s += t[0]=='0' ? t.substr(2) : t.substr(1);
+                tagOpen = false;
+            } else {
+                var n = 1;
+                while (t[n] != 'm') n++; // find closing 'm'
+                var fmt = t.substr(0, n).replace(/"/g,'').replace(/[;:]/g,'-');
+                t = t.substr(n+1);
+                s += '<span class="ansi' + fmt + '">' + t;
+                tagOpen = true;
+            }
+        });
+        if (tagOpen) s += '</span>';
+        return s;
+      }
+
+      function deansify(s) {
+        // remove ansi commands for logging/browser console
+        return s.replace(/\x1b\[.*?m/g, '');
+      }
+    </script>
+    <script type="text/javascript">
+      var statusElement = document.getElementById('status');
+      var progressElement = document.getElementById('progress');
+      var spinnerElement = document.getElementById('spinner');
+
+      var Module = {
+        preRun: [],
+        postRun: [],
+        autoscroll: true,
+        print: function(text) {
+          if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+          Module.printReal(text);
+        },
+        printReal: (function() {
+          var element = document.getElementById('output');
+          if (element) element.value = ''; // clear browser cache
+          element.addEventListener('scroll', function() {
+            Module.autoscroll = element.scrollTop + element.clientHeight >= element.scrollHeight - 1;
+          });
+          return function(text, isErr) {
+            var raw = deansify(text);
+            if (isErr) console.error(raw); else console.log(raw);
+            log(raw);
+            // These replacements are necessary if you render to raw HTML
+            text = text.replace(/&/g, "&amp;");
+            text = text.replace(/</g, "&lt;");
+            text = text.replace(/>/g, "&gt;");
+            text = text.replace('\n', '<br>', 'g');
+            if (element.tagName.toUpperCase() == 'TEXTAREA') {
+              element.value += deansify(text) + "\n";
+            } else {
+              text = ansi2html(text);
+              if (text.startsWith("APClient:") || text.startsWith("USB2SNES:") || text.startsWith("Game:") || text.startsWith("UUID:"))
+                text = '<span class="debug">' + text + '\n</span>';
+              else
+                text = text + '\n';
+              element.insertAdjacentHTML('beforeend', text);
+            }
+            if (Module.autoscroll)
+              element.scrollTop = element.scrollHeight; // focus on bottom
+          };
+        })(),
+        printErr: function(text) {
+          if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+          Module.printReal(text, true);
+        },
+        setStatus: function(text) {
+          if (!Module.setStatus.last) Module.setStatus.last = { time: Date.now(), text: '' };
+          if (text === Module.setStatus.last.text) return;
+          var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
+          var now = Date.now();
+          if (m && now - Module.setStatus.last.time < 30) return; // if this is a progress update, skip it if too soon
+          Module.setStatus.last.time = now;
+          Module.setStatus.last.text = text;
+          if (m) {
+            text = m[1];
+            progressElement.value = parseInt(m[2])*100;
+            progressElement.max = parseInt(m[4])*100;
+            progressElement.hidden = false;
+            spinnerElement.hidden = false;
+          } else {
+            progressElement.value = null;
+            progressElement.max = null;
+            progressElement.hidden = true;
+            if (!text) spinnerElement.hidden = true;
+          }
+          statusElement.innerHTML = text;
+        },
+        apServer: (function() {
+            var hash = window.location.hash;
+            if (hash) {
+                hash = hash.substring(1);
+                var args = hash.split(',');
+                for (var i=0; i<args.length; i++) {
+                    var p = args[i].indexOf('=');
+                    if (p >= 0 && args[i].substr(0, p) == 'server') {
+                        return args[i].substr(p+1);
+                    }
+                }
+            }
+        })()
+      };
+      Module.setStatus('Downloading...');
+      window.onerror = function(text,f,ln,col,e) {
+        console.error(text);
+        log(text);
+        if (e == 'WS not supported' || e instanceof SecurityError) {
+            document.getElementById('stdin').disabled = true;
+            var url = document.location.href.replace("https:","http:");
+            document.getElementById('output').insertAdjacentHTML('beforeend',
+                ' <span class="exception">Unencrypted connection is not supported from https. Please try the <a href="'+url+'">http version</a>.');
+        } else {
+            Module.setStatus('Exception thrown, see JavaScript console');
+            spinnerElement.style.display = 'none';
+            Module.setStatus = function(text) {
+              if (text) Module.printErr('[post-exception status] ' + text);
+            };
+        }
+      };
+    </script>
+    {{{ SCRIPT }}}
+  </body>
+</html>
