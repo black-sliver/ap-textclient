@@ -1,0 +1,2 @@
+[codespell]
+skip = ./.git,./subprojects,./build,./nbproject,datapackage.json,*.pem,uuid
