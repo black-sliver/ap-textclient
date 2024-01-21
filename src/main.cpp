@@ -353,7 +353,7 @@ void on_command(const std::string& command)
 EM_BOOL step(double time, void* userData)
 {
     // we run code that acts on elapsed time in the main loop
-    // TODO: use async timers (for JS) instead and get rid of step() alltogether
+    // TODO: use async timers (for JS) instead and get rid of step() altogether
     if (ap) ap->poll();
 
     // parse stdin
@@ -411,7 +411,7 @@ int main(int argc, char** argv)
     setenv("HOME", VIRTUAL_HOME_DIR, true);
 #endif
 #ifdef USE_IDBFS
-    // mount persistant storage, then run app
+    // mount persistent storage, then run app
     EM_ASM({
         FS.mkdir('/settings');
         FS.mount(IDBFS, {}, '/settings');
