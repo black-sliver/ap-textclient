@@ -1,5 +1,11 @@
+# build output
 build
+
+# IDE files
+/.idea
+/nbproject
+
+# runtime files
+/util/*.pem
 datapackage.json
 uuid
-/.idea
-/util/*.pem
