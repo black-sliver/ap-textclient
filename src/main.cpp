@@ -24,7 +24,7 @@
 #define PRId64 "I64d"
 #endif
 
-#define VERSION_TUPLE {0,4,1}
+#define VERSION_TUPLE {0,4,9}
 
 
 /*
@@ -136,11 +136,6 @@ void connect_ap(std::string uri="", std::string newSlot="")
 
     printf("Connecting to AP...\n");
     ap.reset(new APClient(uuid, "", uri.empty() ? APClient::DEFAULT_URI : uri, CERT_STORE));
-
-    // load DataPackage cache
-    try {
-        ap->set_data_package_from_file(OLD_DATAPACKAGE_CACHE);
-    } catch (std::exception) { /* ignore */ }
 
     // set state and callbacks
     ap_sync_queued = false;
