@@ -211,9 +211,29 @@
       }
     </script>
     <script type="text/javascript">
-      var statusElement = document.getElementById('status');
-      var progressElement = document.getElementById('progress');
-      var spinnerElement = document.getElementById('spinner');
+      const statusElement = document.getElementById('status');
+      const progressElement = document.getElementById('progress');
+      const spinnerElement = document.getElementById('spinner');
+
+      const getHashArgument = function(name, urldecode) {
+        if (window.location.hash) {
+          const hash = window.location.hash.substring(1);
+          const args = hash.split(',');
+          for (let i=0; i<args.length; i++) {
+            const p = args[i].indexOf('=');
+            if (p >= 0 && args[i].substring(0, p) === name) {
+              if (urldecode) {
+                try {
+                  return decodeURIComponent(args[i].substring(p + 1));
+                } catch {
+                  console.warn("Assuming unencoded " + name + ". Please double uri-encode slot=!")
+                }
+              }
+              return args[i].substring(p + 1);
+            }
+          }
+        }
+      }
 
       var Module = {
         preRun: [],
@@ -278,25 +298,23 @@
           }
           statusElement.innerHTML = text;
         },
-        apServer: (function() {
-            var hash = window.location.hash;
-            if (hash) {
-                hash = hash.substring(1);
-                var args = hash.split(',');
-                for (var i=0; i<args.length; i++) {
-                    var p = args[i].indexOf('=');
-                    if (p >= 0 && args[i].substr(0, p) == 'server') {
-                        return args[i].substr(p+1);
-                    }
-                }
-            }
-        })()
+        apServer: getHashArgument("server"),
+        apSlot: getHashArgument("slot", true),
       };
       Module.setStatus('Downloading...');
       window.onerror = function(text,f,ln,col,e) {
         console.error(text);
         log(text);
-        if (e == 'WS not supported' || e instanceof SecurityError) {
+        let isSecurityError;
+        try {
+          isSecurityError = (e == 'WS not supported' ||
+                             e.name === "SecurityError" ||
+                             e.code === 18 ||
+                             e instanceof SecurityError);
+        } catch {
+          isSecurityError = false;
+        }
+        if (isSecurityError) {
             document.getElementById('stdin').disabled = true;
             var url = document.location.href.replace("https:","http:");
             document.getElementById('output').insertAdjacentHTML('beforeend',

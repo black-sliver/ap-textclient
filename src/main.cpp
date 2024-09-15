@@ -381,7 +381,10 @@ void start()
     // auto-connect to ap server given by #server=...
     EM_ASM({
         // TODO: use argv and set connect_ap instead?
-        if (Module.apServer) Module.on_command('/connect '+Module.apServer);
+        if (Module.apServer && Module.apSlot)
+            Module.on_command('/connect ' + Module.apServer + ' ' + Module.apSlot);
+        else if (Module.apSlot || Module.apServer)
+            Module.print('NOTE: textclient requires #server=...,slot=... for auto-connect!')
     });
     //emscripten_request_animation_frame_loop(step, 0);
     EM_ASM({
