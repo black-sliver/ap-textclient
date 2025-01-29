@@ -5,7 +5,7 @@ source build.cfg
 
 INCLUDE_DIRS="$INCLUDE_DIRS -Isubprojects/asio/include -Isubprojects/websocketpp"
 DEFINES="$DEFINES -DASIO_STANDALONE -DWSWRAP_SEND_EXCEPTIONS" # not using boost
-LIBS="$LIBS -pthread -lssl -lcrypto -Wno-deprecated-declarations"
+LIBS="$LIBS -pthread -lssl -lcrypto -lz -Wno-deprecated-declarations"
 BUILD_DIR="build/native"
 CPP="g++"
 
