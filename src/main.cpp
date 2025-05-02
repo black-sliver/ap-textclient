@@ -99,7 +99,11 @@ void abort_password()
 void connect_slot(const std::string& password)
 {
     if (ap) {
+#ifdef WITH_DEATHLINK_TEST
+        std::list<std::string> tags = {"TextOnly", "DeathLink"};
+#else
         std::list<std::string> tags = {"TextOnly"};
+#endif
         ap->ConnectSlot(slot, password, 0, tags, VERSION_TUPLE);
         ap_connect_sent = true; // TODO: move to APClient::State ?
     } else {
@@ -221,6 +225,25 @@ void connect_ap(std::string uri="", std::string newSlot="")
     ap->set_print_json_handler([](const std::list<APClient::TextNode>& msg) {
         printf("%s\n", ap->render_json(msg, APClient::RenderFormat::ANSI).c_str());
     });
+#ifdef WITH_DEATHLINK_TEST
+    ap->set_bounced_handler([](const json& cmd) {
+        auto tagsIt = cmd.find("tags");
+        auto dataIt = cmd.find("data");
+        if (tagsIt != cmd.end() && tagsIt->is_array()
+                && std::find(tagsIt->begin(), tagsIt->end(), "DeathLink") != tagsIt->end())
+        {
+            printf("Received deathlink...\n");
+            if (dataIt != cmd.end() && dataIt->is_object()) {
+                json data = *dataIt;
+                printf("Died by the hands of %s: %s\n",
+                    data["source"].is_string() ? data["source"].get<std::string>().c_str() : "???",
+                    data["cause"].is_string() ? data["cause"].get<std::string>().c_str() : "???");
+            } else {
+                printf("Bad deathlink packet!\n");
+            }
+        }
+    });
+#endif
 }
 
 void password_entered(const std::string& password)
@@ -328,6 +351,17 @@ void on_command(const std::string& command)
         }
     } else if (command == "/disconnect") {
         disconnect_ap();
+#ifdef WITH_DEATHLINK_TEST
+    } else if (command == "/death") {
+        if (!ap) return;
+        auto deathtime = ap->get_server_time();
+        json data{
+            {"time", deathtime},
+            {"cause", "Test"},
+            {"source", ap->get_slot()},
+        };
+        ap->Bounce(data, {}, {}, {"DeathLink"});
+#endif
     } else if (command.find("/") == 0) {
         printf("Unknown command: %s\n", command.c_str());
     } else if (!ap || ap->get_state() < APClient::State::SOCKET_CONNECTED) {
