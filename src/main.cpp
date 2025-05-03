@@ -121,19 +121,32 @@ void connect_ap(std::string uri="", std::string newSlot="")
     is_ws = uri.rfind("ws://", 0) == 0;
     is_wss = uri.rfind("wss://", 0) == 0;
 
-    // remove schema from URI for UUID generation; UUID is per room this way
-    std::string uuid = ap_get_uuid(UUID_FILE,
+    // remove scheme from URI for UUID generation and localhost-detection; UUID is per room this way
+    std::string uri_without_scheme =
             uri.empty() ? APClient::DEFAULT_URI :
             is_ws ? uri.substr(5) :
             is_wss ? uri.substr(6) :
-            uri);
+            uri;
+
+    std::string uuid = ap_get_uuid(UUID_FILE, uri_without_scheme);
 
     #ifdef __EMSCRIPTEN__
-    if (is_https && is_ws) {
+    bool is_localhost = false;
+    for (auto& localhost_variant: {"127.0.0.1", "localhost"}) {
+		if (uri_without_scheme.rfind(localhost_variant, 0) == 0) {
+            char next = uri_without_scheme.c_str()[strlen(localhost_variant)];
+            if (next == 0 || next == '/' || next == ':') {
+                is_localhost = true;
+                break;
+            }
+		}
+    }
+
+    if (is_https && is_ws && !is_localhost) {
         EM_ASM({
             throw 'WS not supported';
         });
-    } else if (is_https && !is_wss) {
+    } else if (is_https && !is_wss && !is_localhost) {
         uri = "wss://" + uri; // only wss supported
     }
     #endif
