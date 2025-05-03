@@ -131,13 +131,13 @@ void connect_ap(std::string uri="", std::string newSlot="")
     #ifdef __EMSCRIPTEN__
     bool is_localhost = false;
     for (auto& localhost_variant: {"127.0.0.1", "localhost"}) {
-		if (uri_without_scheme.rfind(localhost_variant, 0) == 0) {
+        if (uri_without_scheme.rfind(localhost_variant, 0) == 0) {
             char next = uri_without_scheme.c_str()[strlen(localhost_variant)];
             if (next == 0 || next == '/' || next == ':') {
                 is_localhost = true;
                 break;
             }
-		}
+        }
     }
 
     if (is_https && is_ws && !is_localhost) {
