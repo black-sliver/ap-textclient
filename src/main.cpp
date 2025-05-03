@@ -24,7 +24,7 @@
 #define PRId64 "I64d"
 #endif
 
-#define VERSION_TUPLE {0,4,9}
+#define VERSION_TUPLE {0, 6, 0}
 
 
 /*
