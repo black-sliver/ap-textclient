@@ -52,11 +52,9 @@ decltype(APClient::DEFAULT_URI) constexpr APClient::DEFAULT_URI;  // c++14 needs
 
 #ifdef __EMSCRIPTEN__
 #define VIRTUAL_HOME_DIR "/settings"
-#define OLD_DATAPACKAGE_CACHE "/settings/datapackage.json"
 #define UUID_FILE "/settings/uuid"
 #define CERT_STORE "" // not required in a browser context
 #else
-#define OLD_DATAPACKAGE_CACHE "datapackage.json"
 #define UUID_FILE "uuid" // TODO: place in %appdata%
 #define CERT_STORE "cacert.pem"
 #endif
