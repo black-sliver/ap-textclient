@@ -362,6 +362,22 @@ void on_command(const std::string& command)
         }
     } else if (command == "/disconnect") {
         disconnect_ap();
+#ifdef WITH_UPDATE_HINT_TEST
+    } else if (command.rfind("/update_hint ", 0) == 0) {
+        if (!ap) return;
+        const char* start = command.c_str() + strlen("/update_hint ");
+        char* next = nullptr;
+        auto player = static_cast<int>(strtol(start, &next, 10));
+        if (next && *next == ' ') {
+            auto location = static_cast<int64_t>(strtoll(next+1, &next, 10));
+            if (next && *next == ' ') {
+                auto status = static_cast<APClient::HintStatus>(strtol(next+1, &next, 10));
+                ap->UpdateHint(player, location, status);
+                return;
+            }
+        }
+        printf("Invalid arguments to /update_hint: Expected player location status.\n");
+#endif
 #ifdef WITH_DEATHLINK_TEST
     } else if (command == "/death") {
         if (!ap) return;
